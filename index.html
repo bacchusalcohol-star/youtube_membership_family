@@ -57,6 +57,15 @@ form.add{display:grid;grid-template-columns:1fr 1fr auto;gap:.6rem;margin-top:1.
 form.add label{display:block;color:var(--muted);font-size:.9rem;margin-bottom:.2rem}
 .count{color:var(--muted);margin-top:.6rem}
 .empty{color:var(--muted);padding:1rem 0}
+.tools{display:flex;gap:.6rem;align-items:center}
+#status{color:var(--muted);font-size:.9rem}
+.lock{position:fixed;inset:0;z-index:10;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:1.25rem}
+.lock[hidden]{display:none}
+.lock form{width:100%;max-width:22rem;text-align:center}
+.lock h1{font-size:1.6rem;margin:0 0 .4rem}
+.lock p{color:var(--muted);margin:0 0 1.2rem}
+.lock input{margin-bottom:.8rem;text-align:center}
+#lockMsg{color:var(--accent);min-height:1.5em;margin:.8rem 0 0}
 @media (max-width:640px){form.add{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
@@ -65,7 +74,11 @@ form.add label{display:block;color:var(--muted);font-size:.9rem;margin-bottom:.2
 
 <div class="top">
   <span class="brand">Family Premium</span>
-  <button class="theme" id="themeBtn" type="button" aria-label="Switch between day and night mode"></button>
+  <div class="tools">
+    <span id="status" role="status"></span>
+    <button class="theme" id="lockBtn" type="button">Lock</button>
+    <button class="theme" id="themeBtn" type="button" aria-label="Switch between day and night mode"></button>
+  </div>
 </div>
 
 <header class="hero">
@@ -102,6 +115,16 @@ form.add label{display:block;color:var(--muted);font-size:.9rem;margin-bottom:.2
   </section>
 </main>
 
+<div class="lock" id="lock" hidden>
+  <form id="lockForm">
+    <h1>Family Premium</h1>
+    <p>Enter the passphrase to see members and fees.</p>
+    <input type="password" id="pass" autocomplete="current-password" aria-label="Passphrase" required>
+    <button class="btn primary" type="submit">Unlock</button>
+    <p id="lockMsg" role="status"></p>
+  </form>
+</div>
+
 <script>
 /* ===== Static info: change these in code only ===== */
 const CONFIG = {
@@ -110,7 +133,8 @@ const CONFIG = {
   CHARGE_DAY: 29,                // day of month YouTube charges (for the following month); clamped to month length
   MAX_MEMBERS: 10,
   OWNER_SHARES_COST: true,       // true: split price among members + you; false: split among members only
-  CURRENCY: 'USD'
+  CURRENCY: 'USD',
+  API_URL: 'https://script.google.com/macros/s/AKfycbxstImW6bd3o-EDXtpw5MvURQGXtT43ye-PXfqhw-BfeYMYe7myK-PkIDw_RWHoHSdxbQ/exec'                    // paste your Apps Script web app URL here (ends with /exec); empty = save in this browser only
 };
 /* ================================================== */
 
@@ -123,12 +147,50 @@ const THEME_KEY = 'familyPremiumTheme';
 let members = [];
 let selectedId = null;
 
-function load(){
-  try{ members = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ members = []; }
+const TOKEN_KEY = 'familyPremiumPass';
+const remote = !!CONFIG.API_URL;
+let token = '';
+
+function setStatus(t, bad){
+  const s = $('status');
+  s.textContent = t;
+  s.style.color = bad ? 'var(--accent)' : 'var(--muted)';
 }
-function save(){
-  try{ localStorage.setItem(KEY, JSON.stringify(members)); }catch(e){}
+
+// returns 'ok', 'denied' (wrong passphrase) or 'error' (could not reach the sheet)
+async function load(){
+  if(!remote){
+    try{ members = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ members = []; }
+    return 'ok';
+  }
+  try{
+    const r = await fetch(CONFIG.API_URL + '?token=' + encodeURIComponent(token));
+    const j = await r.json();
+    if(!j.ok) return 'denied';
+    members = j.members;
+    return 'ok';
+  }catch(e){ return 'error'; }
 }
+
+async function doSave(){
+  if(!remote){
+    try{ localStorage.setItem(KEY, JSON.stringify(members)); }catch(e){}
+    return;
+  }
+  setStatus('Saving…');
+  try{
+    const r = await fetch(CONFIG.API_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({token, members})
+    });
+    const j = await r.json();
+    setStatus(j.ok ? 'Saved' : 'Not saved: wrong passphrase', !j.ok);
+  }catch(e){ setStatus('Not saved: check your connection', true); }
+}
+// saves run one after another so an older save can never overwrite a newer one
+let queue = Promise.resolve();
+function save(){ queue = queue.then(doSave); }
 
 function todayStr(){
   const d = new Date();
@@ -273,8 +335,46 @@ let saved = null;
 try{ saved = localStorage.getItem(THEME_KEY); }catch(e){}
 setTheme(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
 
-load();
-render();
+/* unlock */
+function showLock(msg){
+  $('lock').hidden = false;
+  $('lockMsg').textContent = msg || '';
+  $('pass').focus();
+}
+async function tryLoad(){
+  const r = await load();
+  if(r === 'ok'){ $('lock').hidden = true; render(); setStatus(''); }
+  else if(r === 'denied'){
+    try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+    token = '';
+    showLock('Wrong passphrase. Try again.');
+  }else{
+    showLock('Could not reach the Google Sheet. Check API_URL and your connection.');
+  }
+}
+$('lockForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  token = $('pass').value;
+  $('pass').value = '';
+  try{ localStorage.setItem(TOKEN_KEY, token); }catch(err){}
+  await tryLoad();
+});
+$('lockBtn').addEventListener('click', () => {
+  try{ localStorage.removeItem(TOKEN_KEY); }catch(e){}
+  token = '';
+  members = [];
+  showLock('Locked.');
+});
+
+async function start(){
+  $('lockBtn').hidden = !remote;
+  if(!remote){ await load(); render(); return; }
+  try{ token = localStorage.getItem(TOKEN_KEY) || ''; }catch(e){}
+  if(!token){ showLock(); return; }
+  showLock('Loading…');
+  await tryLoad();
+}
+start();
 </script>
 </body>
 </html>
