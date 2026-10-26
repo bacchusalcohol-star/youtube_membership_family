@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Family Premium Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --ink:#15202e; --muted:#5d6b7c; --line:#d9dfe7;
+  --accent:#d4342a; --accent-ink:#ffffff; --ok:#1c7a52;
+  --font:'Bricolage Grotesque',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --bg:#0e1621; --surface:#16212f; --ink:#e8edf3; --muted:#93a1b3; --line:#27364a;
+  --accent:#ff6a5c; --accent-ink:#1a0b09; --ok:#58c896;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);line-height:1.5}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.top{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:1rem 1.25rem}
+.brand{font-weight:600;color:var(--muted)}
+.theme{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:.4rem .9rem;cursor:pointer}
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:5rem 1.25rem 3rem}
+.hero .who{display:flex;gap:.6rem;align-items:center;color:var(--muted);margin-bottom:1rem}
+.hero select{background:var(--surface);border:1px solid var(--line);border-radius:.6rem;padding:.4rem .7rem}
+.big{font-size:clamp(4.5rem,22vw,11rem);font-weight:800;line-height:1;letter-spacing:-.03em;color:var(--accent);margin:0;font-variant-numeric:tabular-nums}
+.sub{font-size:clamp(1.1rem,3.5vw,1.6rem);margin:1rem 0 0}
+.sub strong{font-weight:800}
+.note{color:var(--muted);max-width:34rem;margin:1rem auto 0}
+.more{margin-top:2.5rem;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:.6rem 1.3rem;cursor:pointer}
+main{max-width:56rem;margin:0 auto;padding:3rem 1.25rem 5rem}
+h2{font-size:1.5rem;margin:0 0 1rem}
+section+section{margin-top:3.5rem}
+dl{margin:0}
+.row{display:flex;justify-content:space-between;gap:1rem;padding:.7rem 0;border-bottom:1px solid var(--line)}
+.row dt{color:var(--muted)}
+.row dd{margin:0;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+.fixed dd::after{content:" · code";font-weight:400;color:var(--muted);font-size:.8em}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:42rem}
+th,td{text-align:left;padding:.65rem .5rem;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--muted);font-weight:600}
+td.num{font-variant-numeric:tabular-nums;font-weight:600}
+input[type=text],input[type=email],input[type=date]{background:var(--surface);border:1px solid var(--line);border-radius:.5rem;padding:.45rem .6rem;width:100%}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:.5rem;padding:.4rem .75rem;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.del{color:var(--accent)}
+.btn:disabled,input:disabled{opacity:.5;cursor:not-allowed}
+form.add{display:grid;grid-template-columns:1fr 1fr auto;gap:.6rem;margin-top:1.25rem;align-items:end}
+form.add label{display:block;color:var(--muted);font-size:.9rem;margin-bottom:.2rem}
+.count{color:var(--muted);margin-top:.6rem}
+.empty{color:var(--muted);padding:1rem 0}
+@media (max-width:640px){form.add{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span class="brand">Family Premium</span>
+  <button class="theme" id="themeBtn" type="button" aria-label="Switch between day and night mode"></button>
+</div>
+
+<header class="hero">
+  <div class="who">
+    <label for="memberSel">Showing</label>
+    <select id="memberSel"></select>
+  </div>
+  <p class="big" id="heroAmount">$0.00</p>
+  <p class="sub" id="heroMonths"></p>
+  <p class="note" id="heroNote"></p>
+  <button class="more" type="button" id="moreBtn">Show full dashboard</button>
+</header>
+
+<main id="details">
+  <section>
+    <h2>Membership</h2>
+    <dl id="stats"></dl>
+  </section>
+
+  <section>
+    <h2>Members</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Name</th><th>Email</th><th>Last fee collected</th><th>Months owed</th><th>Amount owed</th><th>Owed in total</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <form class="add" id="addForm">
+      <div><label for="newName">Name</label><input type="text" id="newName" required maxlength="60"></div>
+      <div><label for="newEmail">Email</label><input type="email" id="newEmail" required maxlength="120"></div>
+      <button class="btn primary" type="submit" id="addBtn">Add member</button>
+    </form>
+    <p class="count" id="count"></p>
+  </section>
+</main>
+
+<script>
+/* ===== Static info: change these in code only ===== */
+const CONFIG = {
+  START_DATE: '2026-05-30',      // membership start = first payment = first delivery
+  MONTHLY_PRICE: 26.99,          // price YouTube charges per month
+  CHARGE_DAY: 29,                // day of month YouTube charges (for the following month); clamped to month length
+  MAX_MEMBERS: 10,
+  OWNER_SHARES_COST: true,       // true: split price among members + you; false: split among members only
+  CURRENCY: 'USD'
+};
+/* ================================================== */
+
+const money = new Intl.NumberFormat('en-US', {style:'currency', currency:CONFIG.CURRENCY});
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEY = 'familyPremiumMembers.v1';
+const THEME_KEY = 'familyPremiumTheme';
+
+let members = [];
+let selectedId = null;
+
+function load(){
+  try{ members = JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ members = []; }
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(members)); }catch(e){}
+}
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function fmtDate(s){
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y,m-1,d).toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+}
+function chargeDate(i){ // i = 0 is the first charge; later charges fall on CHARGE_DAY of each following month
+  if(i === 0) return CONFIG.START_DATE;
+  const [y,m] = CONFIG.START_DATE.split('-').map(Number);
+  const dt = new Date(y, m-1+i, 1);
+  const last = new Date(dt.getFullYear(), dt.getMonth()+1, 0).getDate();
+  const day = Math.min(CONFIG.CHARGE_DAY, last);
+  return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+}
+function charges(){ // all charge dates up to and including today
+  const t = todayStr(), out = [];
+  for(let i=0; i<1200; i++){ const d = chargeDate(i); if(d > t) break; out.push(d); }
+  return out;
+}
+function nextCharge(){
+  const t = todayStr();
+  for(let i=0; i<1200; i++){ const d = chargeDate(i); if(d > t) return d; }
+}
+// A date equal to the start date means "nothing collected yet", so the first charge counts too.
+function monthsSince(list, last){
+  return list.filter(d => last === CONFIG.START_DATE ? d >= last : d > last).length;
+}
+function share(){
+  const n = members.length + (CONFIG.OWNER_SHARES_COST ? 1 : 0);
+  return CONFIG.MONTHLY_PRICE / Math.max(n, 1);
+}
+
+function render(){
+  const list = charges();
+  const paid = list.length;
+  const s = share();
+  const latest = members.reduce((a,m) => m.last > a ? m.last : a, CONFIG.START_DATE);
+  const sinceAll = monthsSince(list, latest);
+
+  // hero
+  const sel = $('memberSel');
+  if(!members.some(m => m.id === selectedId)) selectedId = members.length ? members[0].id : null;
+  sel.innerHTML = members.map(m => `<option value="${m.id}">${esc(m.name)}</option>`).join('');
+  sel.value = selectedId || '';
+  sel.disabled = !members.length;
+  const me = members.find(m => m.id === selectedId);
+  if(me){
+    const mo = monthsSince(list, me.last);
+    $('heroAmount').textContent = money.format(mo * s);
+    $('heroMonths').innerHTML = `<strong>${mo}</strong> ${mo === 1 ? 'month' : 'months'} paid since last fee collection`;
+    $('heroNote').textContent = `Last collected ${fmtDate(me.last)} · ${money.format(s)} per month`;
+  }else{
+    $('heroAmount').textContent = money.format(0);
+    $('heroMonths').textContent = 'No members yet';
+    $('heroNote').textContent = 'Add a member below to see what each person owes.';
+  }
+
+  // stats
+  const fixed = (l,v) => `<div class="row fixed"><dt>${l}</dt><dd>${v}</dd></div>`;
+  const row = (l,v) => `<div class="row"><dt>${l}</dt><dd>${v}</dd></div>`;
+  $('stats').innerHTML =
+    fixed('Membership started', fmtDate(CONFIG.START_DATE)) +
+    fixed('First payment and first delivery', fmtDate(CONFIG.START_DATE)) +
+    fixed('Monthly price', money.format(CONFIG.MONTHLY_PRICE)) +
+    row('Next charge', fmtDate(nextCharge())) +
+    row('Months paid since start', paid) +
+    row('Months paid since last fee collection', sinceAll) +
+    row('Total charged so far', money.format(paid * CONFIG.MONTHLY_PRICE)) +
+    row('Charged since last fee collection', money.format(sinceAll * CONFIG.MONTHLY_PRICE)) +
+    row('Each person should pay per month', money.format(s)) +
+    row('Each person should pay in total', money.format(paid * s)) +
+    row('Each person should pay since last fee collection', money.format(sinceAll * s));
+
+  // members table
+  $('rows').innerHTML = members.length ? members.map(m => {
+    const mo = monthsSince(list, m.last);
+    return `<tr>
+      <td>${esc(m.name)}</td>
+      <td>${esc(m.email)}</td>
+      <td><input type="date" value="${m.last}" min="${CONFIG.START_DATE}" max="${todayStr()}" data-id="${m.id}" class="lastIn" aria-label="Last fee collected for ${esc(m.name)}"></td>
+      <td class="num">${mo}</td>
+      <td class="num">${money.format(mo * s)}</td>
+      <td class="num">${money.format(paid * s)}</td>
+      <td><button class="btn collect" data-id="${m.id}" type="button">Collected today</button>
+          <button class="btn del" data-id="${m.id}" type="button">Delete</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7" class="empty">No members yet. Add the first one below.</td></tr>`;
+
+  const full = members.length >= CONFIG.MAX_MEMBERS;
+  $('addBtn').disabled = full;
+  $('newName').disabled = full;
+  $('newEmail').disabled = full;
+  $('count').textContent = `${members.length} of ${CONFIG.MAX_MEMBERS} members` + (full ? ' · delete one to add another' : '');
+}
+
+/* events */
+$('memberSel').addEventListener('change', e => { selectedId = e.target.value; render(); });
+$('moreBtn').addEventListener('click', () => $('details').scrollIntoView());
+
+$('addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  if(members.length >= CONFIG.MAX_MEMBERS) return;
+  const name = $('newName').value.trim(), email = $('newEmail').value.trim();
+  if(!name || !email) return;
+  const m = {id:'m'+Date.now(), name, email, last:CONFIG.START_DATE};
+  members.push(m);
+  selectedId = m.id;
+  save();
+  e.target.reset();
+  render();
+});
+
+$('rows').addEventListener('click', e => {
+  const id = e.target.dataset.id;
+  if(!id) return;
+  const m = members.find(x => x.id === id);
+  if(e.target.classList.contains('del')){
+    if(confirm(`Delete ${m.name}?`)){ members = members.filter(x => x.id !== id); save(); render(); }
+  }else if(e.target.classList.contains('collect')){
+    m.last = todayStr(); save(); render();
+  }
+});
+$('rows').addEventListener('change', e => {
+  if(!e.target.classList.contains('lastIn')) return;
+  const m = members.find(x => x.id === e.target.dataset.id);
+  const v = e.target.value;
+  m.last = (v && v >= CONFIG.START_DATE && v <= todayStr()) ? v : CONFIG.START_DATE;
+  save(); render();
+});
+
+/* theme */
+function setTheme(t){
+  document.documentElement.dataset.theme = t;
+  $('themeBtn').textContent = t === 'dark' ? '☀ Day mode' : '☾ Night mode';
+  try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+}
+$('themeBtn').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+let saved = null;
+try{ saved = localStorage.getItem(THEME_KEY); }catch(e){}
+setTheme(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+load();
+render();
+</script>
+</body>
+</html>
