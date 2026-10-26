@@ -132,7 +132,7 @@ const CONFIG = {
   MONTHLY_PRICE: 26.99,          // price YouTube charges per month
   CHARGE_DAY: 29,                // day of month YouTube charges (for the following month); clamped to month length
   MAX_MEMBERS: 10,
-  OWNER_SHARES_COST: true,       // true: split price among members + you; false: split among members only
+  OWNER_SHARES_COST: false,      // false: split among the members listed on the page (include yourself in the list); true: add one extra share for you
   CURRENCY: 'USD',
   API_URL: 'https://script.google.com/macros/s/AKfycbxstImW6bd3o-EDXtpw5MvURQGXtT43ye-PXfqhw-BfeYMYe7myK-PkIDw_RWHoHSdxbQ/exec'                    // paste your Apps Script web app URL here (ends with /exec); empty = save in this browser only
 };
@@ -223,7 +223,8 @@ function monthsSince(list, last){
 }
 function share(){
   const n = members.length + (CONFIG.OWNER_SHARES_COST ? 1 : 0);
-  return CONFIG.MONTHLY_PRICE / Math.max(n, 1);
+  // rounded to cents first, so every total is exactly months x the monthly amount shown
+  return Math.round(CONFIG.MONTHLY_PRICE / Math.max(n, 1) * 100) / 100;
 }
 
 function render(){
